@@ -1,0 +1,17 @@
+# BUILD OUTPUT
+**/bin/
+**/obj/
+
+# VISUAL STUDIO
+.vs/
+
+# VS CODE LOCAL SETTINGS
+.vscode/
+
+# USER-SPECIFIC FILES
+*.user
+*.suo
+
+# ENVIRONMENT FILES
+.env
+.env.*
