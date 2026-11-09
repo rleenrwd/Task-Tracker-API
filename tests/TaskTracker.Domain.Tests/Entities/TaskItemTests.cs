@@ -1,0 +1,115 @@
+using TaskTracker.Domain.Entities;
+using TaskTracker.Domain.Enums;
+using Xunit;
+
+public class TaskItemTests
+{
+    [Fact]
+    public void Create_WithValidTitle_ReturnsDraftTask()
+    {
+        string title = "Test Title";
+        string? description = "";
+        DateTimeOffset createdAt= DateTimeOffset.UtcNow;
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Equal(TaskItemStatus.Draft, newTask.Status);
+    }
+
+
+    [Fact]
+    public void Create_WithValidInputs_InitializesProperties()
+    {
+        string title = "New Test Title";
+        string? description = "This is a description for the new test.";
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Equal(title, newTask.Title);
+        Assert.Equal(description, newTask.Description);
+        Assert.Equal(createdAt, newTask.CreatedAt);
+        Assert.NotEqual(Guid.Empty, newTask.Id);
+        Assert.Null(newTask.SubmittedAt);
+    }
+
+
+    [Fact]
+    public void Create_WithEmptyTitle_ThrowsArgumentException()
+    {
+        string title = "";
+        string? description = "This is a description";
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<ArgumentException>(() => 
+        {
+            TaskItem.Create(title, description, createdAt);
+        });
+    }
+
+    [Fact]
+    public void Create_WithWhitespaceTitle_ThrowsArgumentException()
+    {
+        string title = "    ";
+        string? description = "";
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            TaskItem.Create(title, description, createdAt);
+        });
+    }
+
+    [Fact]
+    public void Create_WithNullTitle_ThrowsArgumentException()
+    {
+        string? title = null;
+        string? description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            TaskItem.Create(title!, description, createdAt);
+        });
+    }
+
+
+    [Fact]
+    public void Create_WithPaddedTitle_TrimsWhitespace()
+    {
+        string title = "    This is a padded title.          ";
+        string? description = null;
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Equal(title.Trim(), newTask.Title);
+    }
+
+    [Fact]
+    public void Create_WithNullDescription_ReturnsDraftTask()
+    {
+        string title = "Valid Title.";
+        string? description = null;
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Null(newTask.Description);
+        Assert.Equal(TaskItemStatus.Draft, newTask.Status);
+    }
+
+    [Fact]
+    public void Create_MultipleTasks_GeneratesUniqueIds()
+    {
+        string title = "Another Valid Title.";
+        string? description = "Another valid description for a task.";
+        DateTimeOffset createdAt = new (2026, 11, 8, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask1 = TaskItem.Create(title, description, createdAt);
+        TaskItem newTask2 = TaskItem.Create(title, description, createdAt);
+
+        Assert.NotEqual(newTask2.Id, newTask1.Id);
+    }
+}
+

@@ -254,3 +254,103 @@ The combination of a **private constructor and public static factory method** al
 The broader lesson is that **object creation can be treated as a controlled business operation rather than simply allowing any caller to instantiate an object with arbitrary values**.
 
 ---
+
+## 5. TaskItem Creation Unit Tests
+
+### Requirement
+
+The application must correctly create draft tasks, initialize their properties, and reject invalid input.
+
+Automated tests must verify that the `TaskItem.Create(...)` factory method behaves according to the established business requirements.
+
+### Implementation
+
+Create an **xUnit test class** named `TaskItemTests` containing eight unit tests:
+
+1. **Create_WithValidTitle_ReturnsDraftTask:** Verifies that a new task starts in the Draft state.
+2. **Create_WithValidInputs_InitializesProperties:** Verifies that the task's properties are initialized correctly.
+3. **Create_WithEmptyTitle_ThrowsArgumentException:** Verifies that an empty title is rejected.
+4. **Create_WithWhitespaceTitle_ThrowsArgumentException:** Verifies that a whitespace-only title is rejected.
+5. **Create_WithNullTitle_ThrowsArgumentException:** Verifies that a null title is rejected.
+6. **Create_WithPaddedTitle_TrimsWhitespace:** Verifies that leading and trailing whitespace is removed from a valid title.
+7. **Create_WithNullDescription_ReturnsDraftTask:** Verifies that a draft can be created without a description.
+8. **Create_MultipleTasks_GeneratesUniqueIds:** Verifies that two separately created tasks receive different identifiers.
+
+The tests use several **xUnit assertions**:
+
+- **Assert.Equal():** Verifies that actual and expected values match.
+- **Assert.NotEqual():** Verifies that two values are different.
+- **Assert.Null():** Verifies that a value is null.
+- **Assert.Throws<T>():** Verifies that an operation throws the expected exception type.
+
+The tests follow the **Arrange, Act, Assert (AAA)** pattern:
+
+- **Arrange:** Prepare the inputs needed for the test.
+- **Act:** Execute the operation being tested.
+- **Assert:** Verify that the result matches the expected behavior.
+
+### Why This Fits
+
+**Unit testing** allows individual components to be tested independently, helping verify that business rules work as intended.
+
+The `TaskItem.Create(...)` method contains several responsibilities that must behave correctly, including title validation, identifier generation, and task initialization.
+
+Testing these behaviors separately makes it easier to identify which requirement is failing when a test does not pass.
+
+The **[Fact] attribute** identifies each method as an xUnit test that should be executed by the test runner.
+
+**Assert.Throws<ArgumentException>()** uses a lambda expression to pass the operation being tested into the assertion. This allows xUnit to execute the operation and verify that it throws the expected exception.
+
+A fixed `DateTimeOffset` is used when verifying timestamp initialization. This makes the test predictable because the expected timestamp is known beforehand.
+
+The tests also demonstrate the importance of testing actual behavior rather than simply checking whether code executes successfully.
+
+### Alternatives & Tradeoffs
+
+**Manual testing** could be used to verify task creation, but repeating the same checks after every code change would be time-consuming and prone to human error.
+
+**Parameterized tests using [Theory] and [InlineData]** could combine the empty, null, and whitespace-only title scenarios into one test method.
+
+This would reduce repeated test code. However, separate `[Fact]` tests were chosen to make each validation scenario easier to understand while learning the testing framework.
+
+**Integration tests** could verify task creation through the database, but they would introduce additional dependencies and complexity that are unnecessary for testing the entity's current business rules.
+
+Unit tests are the appropriate starting point because the creation logic can be executed directly without requiring an API or database.
+
+### What It Does Not Do
+
+The eight tests verify the implemented task-creation behaviors, but they do not test the complete application.
+
+They do not verify:
+
+- **Database persistence:** Whether tasks are successfully saved to and retrieved from SQL Server.
+- **HTTP behavior:** Whether API endpoints correctly process requests and return responses.
+- **Draft editing:** Whether existing drafts can be modified according to business rules.
+- **Submission:** Whether incomplete drafts are rejected and valid drafts transition to Submitted.
+- **Full identifier uniqueness:** Testing two generated IDs does not mathematically guarantee that collisions can never occur.
+
+The tests also do not currently verify the exception's parameter name or every possible invalid input.
+
+These additional behaviors will be addressed through future unit and integration tests where appropriate.
+
+### Transferable Knowledge
+
+**Unit testing** is useful for verifying individual methods, classes, and business rules without requiring the entire application to run.
+
+Examples include:
+
+- **Bank Account:** Verify that withdrawing more than the available balance is rejected.
+- **Order:** Verify that an order cannot be submitted without required information.
+- **Inventory Item:** Verify that an operation cannot reduce available stock below zero.
+- **Investigation Case:** Verify that invalid status transitions are rejected.
+- **User Account:** Verify that required information is validated during account creation.
+
+The **Arrange, Act, Assert pattern** provides a reusable structure for organizing tests and making their purpose clear.
+
+**Exception testing** is useful when business rules require invalid operations to be rejected rather than silently accepted.
+
+**Designing for testability** is also an important engineering principle. Providing controlled inputs, such as fixed timestamps, makes it easier to verify behavior reliably.
+
+The broader lesson is that **automated testing should verify requirements and expected behavior, not simply whether code compiles or runs without errors**.
+
+---

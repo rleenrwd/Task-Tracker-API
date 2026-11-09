@@ -1,4 +1,4 @@
-using System.Data.Common;
+
 using TaskTracker.Domain.Enums;
 
 namespace TaskTracker.Domain.Entities;

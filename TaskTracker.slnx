@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/TaskTracker.Domain/TaskTracker.Domain.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TaskTracker.Domain.Tests/TaskTracker.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
