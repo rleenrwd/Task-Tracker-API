@@ -1,7 +1,7 @@
 
 namespace TaskTracker.Domain.Enums;
 
-public enum TaskStatus
+public enum TaskItemStatus
 {
     Draft = 0,
     Submitted = 1
