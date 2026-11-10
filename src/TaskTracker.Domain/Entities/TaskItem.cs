@@ -38,6 +38,23 @@ public sealed class TaskItem
         Guid id = Guid.NewGuid(); 
  
         return new TaskItem(id, title.Trim(), description, createdAt);
+    }
+
+
+    public void EditDraft(string title, string? description)
+    {
+        if (this.Status != TaskItemStatus.Draft)
+        {
+            throw new InvalidOperationException("The task can only be edited while it is a draft.");
+        }
+
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            throw new ArgumentException("A title is required.", nameof(title));
+        }
+
+        this.Title = title.Trim();
+        this.Description = description;
 
     }
 
