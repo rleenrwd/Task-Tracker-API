@@ -354,3 +354,76 @@ The **Arrange, Act, Assert pattern** provides a reusable structure for organizin
 The broader lesson is that **automated testing should verify requirements and expected behavior, not simply whether code compiles or runs without errors**.
 
 ---
+
+## 6. TaskItem EditDraft Method
+
+### Requirement
+
+The application must allow a task to be edited while it is in the Draft state.
+
+A submitted task must not be editable, and an edited draft must still contain a valid title. The description may remain null while the task is a draft.
+
+### Implementation
+
+Create a public instance method named `EditDraft(...)` that accepts:
+
+- **title (string):** The updated task title.
+- **description (string?):** The updated task description, which may remain null while the task is a draft.
+
+The method performs the following operations:
+
+1. Checks whether the current task's Status is `TaskItemStatus.Draft`.
+2. Throws an `InvalidOperationException` if the task is not a draft.
+3. Validates the new title using `string.IsNullOrWhiteSpace()`.
+4. Throws an `ArgumentException` with `nameof(title)` if the title is invalid.
+5. Trims leading and trailing whitespace from the title.
+6. Updates the task's Title and Description properties.
+
+### Why This Fits
+
+`EditDraft(...)` is an **instance method** because it modifies the state of an existing TaskItem.
+
+The method uses `this.Status`, `this.Title`, and `this.Description` to work with the specific TaskItem instance that called the method.
+
+Keeping the editing rules inside the entity supports **encapsulation**. Outside code cannot directly modify the private-set properties and bypass the task's business rules.
+
+The lifecycle check happens before any properties are changed. This prevents submitted tasks from being modified.
+
+The title is also validated before either property is updated. This prevents the entity from being left in a partially updated or invalid state if validation fails.
+
+### Alternatives & Tradeoffs
+
+The application service or controller could check whether a task is editable before changing its properties.
+
+However, relying only on outside components would make the business rule easier to bypass. Another part of the application could potentially modify the task without performing the same validation.
+
+Public setters could also allow direct editing, but they would remove the entity's control over when and how its state changes.
+
+The method could return a new TaskItem instead of modifying the existing instance, using an immutable design. However, the current requirements allow drafts to change over time, so controlled mutation through an instance method is a simpler fit.
+
+### What It Does Not Do
+
+The method does not save the changes to the database.
+
+It only changes the TaskItem entity in memory. Persistence will be handled by another application component.
+
+The method also does not allow editing after submission and does not handle task submission itself.
+
+The behavior has compiled successfully but still needs unit tests to verify the editing rules.
+
+### Transferable Knowledge
+
+**Instance methods** are useful when behavior applies to a specific existing object and may change that object's state.
+
+Examples include:
+
+- **Order:** Update shipping information while the order is still editable.
+- **Bank Account:** Withdraw money from a specific account while enforcing balance rules.
+- **Inventory Item:** Adjust the quantity of a specific inventory record while enforcing stock rules.
+- **Investigation Case:** Update case details only while the case is in an editable workflow state.
+
+A broader principle is to **validate an operation before changing state**. Performing all required checks first helps prevent partial updates and keeps an entity valid when an operation fails.
+
+Another transferable principle is that **business rules are harder to bypass when the entity that owns the state also controls how that state can change**.
+
+---

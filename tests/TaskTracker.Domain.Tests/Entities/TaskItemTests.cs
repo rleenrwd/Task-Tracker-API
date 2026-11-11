@@ -111,5 +111,112 @@ public class TaskItemTests
 
         Assert.NotEqual(newTask2.Id, newTask1.Id);
     }
+
+
+    [Fact]
+    public void EditDraft_WithValidInputs_UpdatesProperties()
+    {
+        string title = "Editing Draft Title";
+        string description = "Testing the edit draft functionality.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem task1 = TaskItem.Create(title, description, createdAt);
+
+        string updatedTitle = "Updating the title";
+        string updatedDescription = "Updating the current description to this.";
+
+        task1.EditDraft(updatedTitle, updatedDescription);
+
+        Assert.Equal(updatedTitle, task1.Title);
+        Assert.Equal(updatedDescription, task1.Description);
+        Assert.Equal(TaskItemStatus.Draft, task1.Status);
+    }
+
+    [Fact]
+    public void EditDraft_WithEmptyTitle_ThrowsArgumentException()
+    {
+        string title = "Title";
+        string description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        string updatedTitle = "";
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            newTask.EditDraft(updatedTitle, newTask.Description);
+        });
+
+        Assert.Equal(title, newTask.Title);
+    }
+
+    [Fact]
+    public void EditDraft_WithWhiteSpaceTitle_ThrowsArgumentException()
+    {
+        string title = "Title";
+        string description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        string updatedTitle = "       ";
+
+        Assert.Throws<ArgumentException>(() =>
+        {
+            newTask.EditDraft(updatedTitle, newTask.Description);
+        });
+
+        Assert.Equal(title, newTask.Title);
+    }
+
+    [Fact]
+    public void EditDraft_WithNullTitle_ThrowsArgumentException()
+    {
+        string title = "Title";
+        string description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        string? updatedTitle = null;
+        Assert.Throws<ArgumentException>(() =>
+        {
+            newTask.EditDraft(updatedTitle!, newTask.Description);
+        });
+
+        Assert.Equal(title, newTask.Title);
+    }
+
+    [Fact]
+    public void EditDraft_WithPaddedTitle_TrimsWhitespace()
+    {
+        string title = "Title";
+        string description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        string updatedTitle = "      Updated Title           ";
+
+        newTask.EditDraft(updatedTitle, newTask.Description);
+        
+        Assert.Equal(updatedTitle.Trim(), newTask.Title);
+    }
+
+    [Fact]
+    public void EditDraft_WithNullDescription_UpdatesDescription()
+    {
+        string title = "Title";
+        string? description = "This is another test description.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        string? updatedDescription = null;
+
+        newTask.EditDraft(newTask.Title, updatedDescription);
+        Assert.Null(updatedDescription);
+    }
 }
 
