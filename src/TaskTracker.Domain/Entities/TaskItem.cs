@@ -58,4 +58,25 @@ public sealed class TaskItem
 
     }
 
+    public void Submit(DateTimeOffset submittedAt)
+    {
+        if (this.Status != TaskItemStatus.Draft)
+        {
+            throw new InvalidOperationException("The task can only be submitted while it is a draft.");
+        }
+
+        if (string.IsNullOrWhiteSpace(this.Title))
+        {
+            throw new InvalidOperationException("A title is required for submission.");
+        }
+
+        if (string.IsNullOrWhiteSpace(this.Description))
+        {
+            throw new InvalidOperationException("A description is required for submission.");
+        }
+
+        this.Status = TaskItemStatus.Submitted;
+        this.SubmittedAt = submittedAt;
+    }
+
 }

@@ -427,3 +427,84 @@ A broader principle is to **validate an operation before changing state**. Perfo
 Another transferable principle is that **business rules are harder to bypass when the entity that owns the state also controls how that state can change**.
 
 ---
+
+## 7. TaskItem Submit Method
+
+### Requirement
+
+The application must allow a task to transition from Draft to Submitted only when all required information is present.
+
+A task must have a valid title and description before submission. Once submitted, its status must change to Submitted, and the submission timestamp must be recorded.
+
+A task that has already been submitted cannot be submitted again.
+
+### Implementation
+
+Create a **public instance method** named `Submit(...)` that returns void and accepts one parameter:
+
+- **submittedAt (DateTimeOffset):** The timestamp supplied by the calling application code.
+
+The method performs the following operations:
+
+1. Checks whether the task's current status is Draft.
+2. Throws an `InvalidOperationException` if the task is not a draft.
+3. Validates the existing title using `string.IsNullOrWhiteSpace()`.
+4. Validates the existing description using `string.IsNullOrWhiteSpace()`.
+5. Throws an `InvalidOperationException` if either required field is invalid.
+6. Changes the task's status to `TaskItemStatus.Submitted`.
+7. Assigns the supplied timestamp to `SubmittedAt`.
+
+### Why This Fits
+
+Using a **public instance method** allows the entity to manage the lifecycle of an existing TaskItem.
+
+The method accesses the task's current properties through the `this` keyword rather than requiring those values as parameters.
+
+This supports **encapsulation** because the entity controls its own state transitions and prevents outside code from changing its status arbitrarily.
+
+All validation occurs **before modifying the entity's state**. If validation fails, the task remains unchanged.
+
+The method uses `InvalidOperationException` because submission is being rejected due to the task's current state or incomplete information.
+
+The submission timestamp is passed into the method rather than generated internally using `DateTimeOffset.UtcNow`. This supports **designing for testability**, allowing automated tests to supply a fixed timestamp and verify that the correct value is stored.
+
+### Alternatives & Tradeoffs
+
+The **controller or application service** could handle submission validation, but this would move the entity's business rules outside the entity itself. Other components could potentially bypass those checks.
+
+The method could also accept **title and description parameters**, but these values already exist within the TaskItem. Passing them again would be unnecessary because submission validates existing information rather than updating it.
+
+Another option would be to generate the submission timestamp internally using `DateTimeOffset.UtcNow`. This would simplify the method signature but make testing exact timestamp values less predictable.
+
+The chosen design keeps **business rules within the entity, avoids unnecessary parameters, and supports predictable testing**.
+
+### What It Does Not Do
+
+The method does not save the submitted task to the database. It only updates the existing entity's state in memory.
+
+It does not allow editing task information during submission. Any required changes must be made while the task is still a draft.
+
+It also does not support reversing a submission or reopening a submitted task.
+
+The submission behavior still requires unit tests to verify successful transitions, rejected submissions, and timestamp initialization.
+
+### Transferable Knowledge
+
+**State transitions** are useful when an entity moves through different stages of a business process.
+
+Examples include:
+
+- **Order:** Transition from Pending to Confirmed only when required order information is complete.
+- **Payment:** Transition from Pending to Completed only after successful payment processing.
+- **Leave Request:** Transition from Draft to Submitted only when required information is present.
+- **Investigation Case:** Transition between workflow states only when the required business conditions are satisfied.
+
+**Encapsulation** allows entities to control these transitions rather than exposing their state for unrestricted modification.
+
+**Validating before modifying state** helps ensure that failed operations do not leave entities partially updated.
+
+**Designing for testability** allows methods to receive controlled values, such as timestamps, making their behavior easier to verify.
+
+The broader principle is that **an entity should enforce the business rules governing its lifecycle and only permit state changes when the required conditions are satisfied**.
+
+---
