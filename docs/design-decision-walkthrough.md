@@ -711,3 +711,387 @@ Examples include:
 The broader principle is that **lifecycle unit tests should verify not only that valid state transitions succeed, but also that invalid transitions are rejected without altering the entity's existing state**.
 
 ---
+
+
+## 10. Infrastructure Layer and Entity Framework Core Architecture
+
+### Requirement
+
+The application must persist TaskItem entities in a relational database without introducing database-specific dependencies into the Domain layer.
+
+The architecture must separate business rules from persistence responsibilities while allowing the application to use SQL Server for data storage.
+
+### Implementation
+
+Create a separate .NET class library named `TaskTracker.Infrastructure` within the `src` directory.
+
+Add the Infrastructure project to the existing solution and establish a project reference from Infrastructure to Domain.
+
+Install `Microsoft.EntityFrameworkCore.SqlServer` to provide Entity Framework Core functionality and SQL Server integration.
+
+Organize database-related components within the Infrastructure project using the following structure:
+
+- **Persistence:** Contains the Entity Framework Core database context.
+- **Persistence/Configurations:** Contains entity-specific database mapping configurations.
+
+The Infrastructure layer currently contains:
+
+- **TaskTrackerDbContext:** Coordinates Entity Framework Core operations and identifies the entities managed by the context.
+- **TaskItemEntityTypeConfiguration:** Defines how the TaskItem entity maps to a relational database table.
+
+The Domain layer remains independent of Infrastructure and contains no Entity Framework Core dependencies.
+
+### Why This Fits
+
+**Separation of concerns** allows business logic and database-related implementation details to evolve independently.
+
+The Domain layer is responsible for defining entities, their properties, and the rules governing their behavior.
+
+The Infrastructure layer is responsible for integrating with external persistence technologies.
+
+This establishes a dependency direction in which Infrastructure depends on Domain, rather than Domain depending on Infrastructure.
+
+**Entity Framework Core** provides an Object-Relational Mapper (ORM) that translates operations involving .NET entities into database operations.
+
+The SQL Server provider enables EF Core to communicate with Microsoft SQL Server without requiring every persistence operation to be implemented using manually written SQL.
+
+Keeping EF Core dependencies in Infrastructure prevents database technology from becoming a requirement for executing the Domain layer's business logic.
+
+This approach also maintains consistency with the layered architecture established in the Signaled application.
+
+### Alternatives & Tradeoffs
+
+**Placing database functionality directly in Domain** would reduce the number of projects but introduce persistence responsibilities into the business model.
+
+This would increase coupling between business rules and database technology, making the Domain layer harder to maintain and test independently.
+
+**Combining Domain and Infrastructure into one project** would simplify the solution structure but weaken the separation between business behavior and persistence implementation.
+
+**Using ADO.NET or a lightweight data-access library such as Dapper** would provide more direct control over database queries and SQL execution.
+
+However, these approaches would require additional manual implementation of persistence operations that EF Core provides through its ORM capabilities.
+
+**Entity Framework Core** reduces repetitive persistence code and provides features such as change tracking, relationship mapping, and database migrations.
+
+The tradeoff is the additional abstraction and the need to understand how EF Core translates entity operations into SQL.
+
+The chosen architecture prioritizes separation of responsibilities, maintainability, and consistency with the patterns used in Signaled.
+
+### What It Does Not Do
+
+Creating the Infrastructure project does not establish a database connection or create database tables.
+
+The Infrastructure layer does not currently implement repository operations, database queries, or persistence workflows.
+
+The SQL Server provider makes database integration possible, but additional configuration is required before the application can connect to SQL Server.
+
+The Infrastructure project also does not replace the Domain layer's responsibility for enforcing business rules.
+
+Database constraints and entity business rules serve related but distinct purposes.
+
+Application services, HTTP endpoints, dependency injection registration, and persistence testing will be implemented in subsequent development stages.
+
+### Transferable Knowledge
+
+**Layered architecture** is useful when developing applications that contain business rules and depend on external technologies.
+
+Examples include:
+
+- **Inventory Management:** Product and inventory rules remain separate from the database used to store inventory records.
+- **Financial Systems:** Transaction rules remain independent of persistence technology.
+- **Order Management:** Order behavior is defined separately from the mechanisms used to store and retrieve orders.
+- **Investigation Management:** Investigation entities enforce their own business rules while Infrastructure handles persistence.
+
+The dependency direction between projects is an important architectural consideration.
+
+A business entity should not need to understand how it is stored in order to enforce its own rules.
+
+Separating business logic from persistence also makes domain-level unit testing possible without requiring a running database.
+
+The broader principle is that **business rules and infrastructure concerns should have clearly defined responsibilities, allowing each part of an application to evolve without unnecessary coupling**.
+
+---
+
+## 11. TaskTrackerDbContext Design
+
+### Requirement
+
+The Infrastructure layer must provide an Entity Framework Core database context capable of managing TaskItem entities.
+
+The context must support external configuration, expose the TaskItem entity set, and register the entity's database mapping configuration.
+
+### Implementation
+
+Create a public class named `TaskTrackerDbContext` inside the `TaskTracker.Infrastructure.Persistence` namespace.
+
+The class inherits from Entity Framework Core's `DbContext`.
+
+Implement a public constructor accepting `DbContextOptions<TaskTrackerDbContext>` and pass the supplied options to the base class constructor.
+
+Define a public `DbSet<TaskItem>` property named `TaskItems`.
+
+The property exposes the TaskItem entity set through the context, allowing EF Core to query and manage TaskItem entities.
+
+Override the protected `OnModelCreating(ModelBuilder modelBuilder)` method.
+
+Inside the override:
+
+1. Call `base.OnModelCreating(modelBuilder)`.
+2. Instantiate `TaskItemEntityTypeConfiguration`.
+3. Retrieve the TaskItem entity builder using `modelBuilder.Entity<TaskItem>()`.
+4. Pass the entity builder to the configuration class's `Configure(...)` method.
+
+This explicitly applies the database mapping rules defined in the separate entity configuration class.
+
+### Why This Fits
+
+**DbContext** is EF Core's primary component for coordinating interactions with a database.
+
+It supports querying entities, tracking changes, and persisting modifications through operations such as `SaveChanges()` and `SaveChangesAsync()`.
+
+**Inheritance from DbContext** provides access to this functionality without requiring a custom persistence framework.
+
+**Constructor injection** allows the context to receive its configuration externally rather than creating or selecting database configuration internally.
+
+The `DbContextOptions<TaskTrackerDbContext>` parameter can supply information such as the database provider and connection settings.
+
+This supports dependency injection and allows different configurations to be supplied for different environments.
+
+**Public accessibility** allows other assemblies, including the future API project, to reference the context directly when configuring dependency injection.
+
+This differs from an internal context, which restricts direct access to its own assembly unless additional accessibility mechanisms are provided.
+
+**DbSet<TaskItem>** gives EF Core an entity set through which TaskItem records can be queried and managed.
+
+**OnModelCreating** provides a central location for registering entity mapping configurations.
+
+Delegating the actual mappings to `TaskItemEntityTypeConfiguration` keeps the database context focused on coordination rather than accumulating individual property configurations.
+
+### Alternatives & Tradeoffs
+
+**An internal DbContext** would provide stronger encapsulation by preventing other assemblies from directly referencing the context type.
+
+Infrastructure could instead expose a public dependency injection registration method while keeping the context internal.
+
+However, this would require additional configuration infrastructure.
+
+A public context was selected for straightforward cross-project dependency injection and accessibility during persistence testing.
+
+**Configuring database settings directly inside DbContext** through `OnConfiguring()` is another option.
+
+However, supplying configuration through constructor injection provides greater flexibility for testing and different application environments.
+
+**Defining all entity mappings inside OnModelCreating** would eliminate the need for separate configuration classes.
+
+This could be reasonable for a very small application, but the method would grow as additional entities and mappings were introduced.
+
+Separate configuration classes provide better organization as the data model expands.
+
+**Using ApplyConfiguration()** would allow EF Core to invoke the entity configuration method automatically.
+
+The chosen approach directly constructs `TaskItemEntityTypeConfiguration` and invokes `Configure(...)` with `modelBuilder.Entity<TaskItem>()`.
+
+Both approaches apply the same configuration.
+
+The direct invocation makes the interaction between ModelBuilder, EntityTypeBuilder, and the configuration class explicit.
+
+### What It Does Not Do
+
+The context does not currently contain a configured SQL Server connection string.
+
+It has not been registered with an application's dependency injection container.
+
+The `TaskItems` property identifies an entity set but does not, by itself, create a physical database table.
+
+The current implementation also does not define custom persistence methods or repository abstractions.
+
+Although DbContext provides change-tracking and persistence capabilities, those behaviors have not yet been verified through database operations.
+
+The context also does not enforce TaskItem lifecycle rules. Those rules remain in the Domain entity.
+
+Database migrations, connection configuration, dependency injection registration, and persistence tests will be implemented later.
+
+### Transferable Knowledge
+
+**DbContext** provides an important abstraction between application code and relational database operations.
+
+Understanding its responsibilities is useful when developing applications that use Entity Framework Core.
+
+Key transferable concepts include:
+
+- **Constructor Injection:** Dependencies and configuration are supplied externally rather than constructed inside a class.
+- **Inheritance:** A custom class extends functionality provided by a framework base class.
+- **DbSet:** EF Core exposes collections of mapped entity types for querying and persistence.
+- **Change Tracking:** EF Core can detect changes to tracked entities and use those changes during persistence operations.
+- **Model Configuration:** Entity mappings can be registered centrally while being defined in separate configuration classes.
+- **Accessibility:** Public and internal types create different boundaries between assemblies.
+
+The same concepts apply to larger applications containing multiple entities and database tables.
+
+The broader principle is that **a database context should coordinate persistence responsibilities while receiving its configuration externally and delegating entity-specific mapping rules to dedicated configuration components**.
+
+---
+
+## 12. TaskItem Entity Type Configuration
+
+### Requirement
+
+The application must define how TaskItem properties map to SQL Server columns while preserving the requirements established in the Domain layer.
+
+Database mappings must identify the table, primary key, required properties, optional properties, and the storage representation of the task's lifecycle status.
+
+### Implementation
+
+Create a public class named `TaskItemEntityTypeConfiguration` inside the `TaskTracker.Infrastructure.Persistence.Configurations` namespace.
+
+The class implements `IEntityTypeConfiguration<TaskItem>`, requiring a public `Configure(EntityTypeBuilder<TaskItem> builder)` method.
+
+Use the EntityTypeBuilder parameter to define the following mappings:
+
+**Table and Primary Key**
+
+- `ToTable("TaskItems")` maps the entity to the TaskItems database table.
+- `HasKey(taskItem => taskItem.Id)` identifies Id as the primary key.
+
+**Title**
+
+- `Property(taskItem => taskItem.Title)` selects the Title property.
+- `IsRequired()` configures the column as non-nullable.
+
+**Description**
+
+- `Property(taskItem => taskItem.Description)` selects the Description property.
+- `IsRequired(false)` allows NULL values.
+
+**Status**
+
+- `Property(taskItem => taskItem.Status)` selects the Status property.
+- `HasConversion<string>()` configures the enum to be stored as its string representation.
+- `HasMaxLength(32)` limits the stored string length.
+- `IsRequired()` configures the column as non-nullable.
+
+**CreatedAt**
+
+- `Property(taskItem => taskItem.CreatedAt)` selects the creation timestamp.
+- `IsRequired()` configures the column as non-nullable.
+
+**SubmittedAt**
+
+- `Property(taskItem => taskItem.SubmittedAt)` selects the submission timestamp.
+- `IsRequired(false)` allows NULL values for tasks that have not been submitted.
+
+The DateTimeOffset properties are compatible with SQL Server's `datetimeoffset` data type.
+
+The configuration class is invoked from TaskTrackerDbContext during model creation.
+
+### Why This Fits
+
+**IEntityTypeConfiguration<T>** provides a dedicated interface for organizing entity mapping rules.
+
+Implementing the interface separates database schema decisions from business logic and keeps the DbContext implementation focused.
+
+**Explicit table and primary-key configuration** makes the database structure intentional rather than relying entirely on EF Core conventions.
+
+**Required and optional property mappings** align database nullability with the Domain entity's property definitions.
+
+For example, Title is required because every task must have a title, while Description is optional because drafts may initially be incomplete.
+
+Similarly, CreatedAt is required for every task, while SubmittedAt remains nullable until submission occurs.
+
+**String-based enum storage** was selected to improve readability when inspecting database records directly.
+
+Instead of storing `0` or `1`, SQL Server will store values such as `Draft` and `Submitted`.
+
+The 32-character maximum provides a defined storage limit for the current status values.
+
+**DateTimeOffset** allows timestamps to retain their UTC offsets, supporting accurate representation of recorded dates and times.
+
+Keeping the mappings inside Infrastructure also prevents Entity Framework Core configuration concerns from becoming part of the Domain entity.
+
+### Alternatives & Tradeoffs
+
+**Relying entirely on EF Core conventions** would reduce configuration code.
+
+EF Core can identify common primary-key patterns, infer nullability from supported C# type information, and map standard property types automatically.
+
+However, explicit configuration documents the intended database schema and makes important storage decisions visible.
+
+**Data annotation attributes** could be placed directly on the Domain entity to configure certain database behaviors.
+
+Examples include attributes for required properties and maximum lengths.
+
+However, using these attributes would introduce persistence-oriented metadata into the Domain model.
+
+The Fluent API was selected to keep database mappings separate from business entities.
+
+**Integer enum storage** is EF Core's default approach and generally uses less storage than strings.
+
+Integer values also remain stable when enum member names are renamed, provided their numeric values do not change.
+
+String storage improves readability but introduces a dependency between stored values and enum member names.
+
+Renaming a status may therefore require a database migration or data conversion strategy.
+
+**Configuring maximum lengths for Title and Description** is another possible schema decision.
+
+The current implementation does not define those limits.
+
+This avoids introducing arbitrary restrictions before the application's maximum text lengths have been established.
+
+The chosen configuration balances explicit schema definitions with the existing Domain requirements.
+
+### What It Does Not Do
+
+The entity configuration does not create the TaskItems table until the database schema is generated and applied.
+
+It does not establish a database connection or execute SQL queries.
+
+**IsRequired()** enforces database nullability but does not reject empty or whitespace-only strings.
+
+For example, the Title column cannot contain NULL, but this constraint does not independently prevent an empty string.
+
+Those validation rules remain in the TaskItem Domain methods.
+
+The configuration also does not enforce valid lifecycle transitions.
+
+Although Status is required, the database mapping does not prevent invalid transitions such as submitting an already submitted task.
+
+Similarly, allowing SubmittedAt to contain NULL does not independently enforce that SubmittedAt must be populated whenever Status is Submitted.
+
+The current configuration does not define database-level check constraints for these relationships.
+
+It also does not currently define maximum lengths for Title or Description, custom indexes beyond the primary key, or concurrency controls.
+
+These concerns may be evaluated when their requirements are introduced.
+
+### Transferable Knowledge
+
+**Entity mapping configuration** is essential when translating a business model into a relational database schema.
+
+It establishes how object properties correspond to database tables, columns, constraints, and storage types.
+
+Important transferable concepts include:
+
+- **Primary Keys:** Identify individual records uniquely within a table.
+- **Nullability:** Defines whether database columns permit missing values.
+- **Value Conversion:** Controls how .NET values are represented in database storage.
+- **String Length Constraints:** Establish database-level limits for character data.
+- **Date and Time Mapping:** Determines how timestamps are represented and preserved.
+- **Fluent API Configuration:** Allows database schema rules to be expressed without adding persistence attributes to Domain classes.
+
+These concepts apply to many applications.
+
+For example:
+
+- **Order Management:** Map order statuses, required customer references, and optional fulfillment timestamps.
+- **Inventory Management:** Configure product identifiers, required descriptions, and inventory quantities.
+- **Payment Processing:** Map transaction states, processing timestamps, and optional completion information.
+- **Investigation Management:** Configure investigation lifecycle statuses, identifiers, and review timestamps.
+
+Database constraints and domain validation should be understood as complementary mechanisms.
+
+Domain validation governs permitted business behavior, while database configuration defines how information is stored and which structural constraints the database enforces.
+
+The broader principle is that **entity configuration should translate domain data requirements into explicit database mappings without moving business behavior into the persistence layer**.
+
+---
