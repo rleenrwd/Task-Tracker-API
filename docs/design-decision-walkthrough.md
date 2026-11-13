@@ -428,7 +428,111 @@ Another transferable principle is that **business rules are harder to bypass whe
 
 ---
 
-## 7. TaskItem Submit Method
+## 7. TaskItem EditDraft Unit Tests
+
+### Requirement
+
+The application must allow existing tasks to be edited while they are in the Draft state.
+
+Editing must enforce the task's business rules, including requiring a valid title, allowing an incomplete description, and preventing changes after submission.
+
+Automated tests must verify that valid edits succeed, invalid edits are rejected, and rejected operations preserve the task's existing state.
+
+### Implementation
+
+Create **six xUnit unit tests** within the `TaskItemTests` class to verify the `EditDraft(...)` method:
+
+1. **EditDraft_WithValidInputs_UpdatesProperties:** Verifies that a draft's title and description can be updated while its status remains Draft.
+2. **EditDraft_WithEmptyTitle_ThrowsArgumentException:** Verifies that an empty title is rejected and the original title remains unchanged.
+3. **EditDraft_WithWhitespaceTitle_ThrowsArgumentException:** Verifies that a whitespace-only title is rejected and the original title remains unchanged.
+4. **EditDraft_WithNullTitle_ThrowsArgumentException:** Verifies that a null title is rejected and the original title remains unchanged.
+5. **EditDraft_WithPaddedTitle_TrimsWhitespace:** Verifies that leading and trailing whitespace is removed from an updated title.
+6. **EditDraft_WithNullDescription_UpdatesDescription:** Verifies that a draft's description can be changed to null while the task remains in Draft status.
+
+An additional test verifies the lifecycle restriction:
+
+7. **EditDraft_WhenAlreadySubmitted_ThrowsInvalidOperationException:** Verifies that a submitted task cannot be edited and that its original title remains unchanged.
+
+The tests use several **xUnit assertions**:
+
+- **Assert.Equal():** Verifies that actual property values match the expected values.
+- **Assert.Null():** Verifies that the description can be cleared during draft editing.
+- **Assert.Throws<T>():** Verifies that invalid editing operations throw the expected exception type.
+
+The tests follow the **Arrange, Act, Assert (AAA)** pattern:
+
+- **Arrange:** Create a valid TaskItem and prepare the updated values.
+- **Act:** Call `EditDraft(...)` with the updated information.
+- **Assert:** Verify that the resulting behavior matches the requirement.
+
+### Why This Fits
+
+**Unit testing** verifies that the `EditDraft(...)` method correctly enforces the business rules governing changes to an existing task.
+
+Testing successful edits confirms that the method updates the entity's properties without changing its lifecycle state.
+
+Testing invalid titles separately verifies that the method rejects null, empty, and whitespace-only values.
+
+**Exception assertions** verify that invalid operations are rejected rather than silently accepted.
+
+Additional assertions verify that the original title remains unchanged after a failed edit.
+
+This reinforces an important design principle: **validation should occur before modifying an entity's state**.
+
+Testing title trimming also verifies that input normalization works during editing, not only during initial creation.
+
+The submitted-task test confirms that the entity enforces its own lifecycle restrictions through the `EditDraft(...)` method.
+
+### Alternatives & Tradeoffs
+
+**Manual testing** could verify whether draft editing behaves correctly, but repeating these checks after every code change would be inefficient and prone to human error.
+
+**Parameterized tests using [Theory] and [InlineData]** could combine the null, empty, and whitespace-only title scenarios into a single test method.
+
+This would reduce repeated code. However, separate `[Fact]` tests make each validation scenario explicit and easier to understand while learning xUnit.
+
+**Integration tests** could verify editing through the database or API, but these would introduce additional dependencies that are unnecessary for testing the entity's current business rules.
+
+Unit tests are appropriate because `EditDraft(...)` modifies an existing object directly in memory without requiring a database or external service.
+
+The chosen approach provides **focused behavioral verification, clear test failures, and minimal testing dependencies**.
+
+### What It Does Not Do
+
+These tests verify the behavior of `EditDraft(...)` but do not confirm that edited tasks are persisted to SQL Server.
+
+They also do not verify that editing operations are correctly exposed through application services or HTTP endpoints.
+
+The tests do not currently verify every possible invalid input or every property after every rejected operation.
+
+For example, the submitted-task test attempts to change the title and verifies that the original title remains unchanged. It does not separately attempt to change the description.
+
+The tests also do not verify database concurrency, where multiple operations attempt to modify the same task simultaneously.
+
+These concerns will be addressed through application, persistence, and integration testing where appropriate.
+
+### Transferable Knowledge
+
+**Unit testing state-changing methods** is important when objects contain business rules that control how their properties can be modified.
+
+Examples include:
+
+- **Bank Account:** Verify that an invalid withdrawal is rejected without changing the account balance.
+- **Order:** Verify that an order can be edited before fulfillment but cannot be modified after shipment.
+- **Inventory Item:** Verify that invalid quantity adjustments do not change the existing stock level.
+- **Investigation Case:** Verify that case information cannot be modified when its lifecycle state prohibits editing.
+
+**Testing invalid operations** is just as important as testing successful operations. A method must not only perform valid changes correctly but also reject changes that violate business rules.
+
+**State preservation** is another transferable concept. When an operation fails validation, the entity should retain its previously valid state rather than becoming partially modified.
+
+**Lifecycle-based validation** allows the same operation to behave differently depending on the entity's current state.
+
+The broader principle is that **unit tests should verify both what an entity is allowed to do and what it must prevent, ensuring that state changes follow the application's business rules**.
+
+---
+
+## 8. TaskItem Submit Method
 
 ### Requirement
 
@@ -506,5 +610,104 @@ Examples include:
 **Designing for testability** allows methods to receive controlled values, such as timestamps, making their behavior easier to verify.
 
 The broader principle is that **an entity should enforce the business rules governing its lifecycle and only permit state changes when the required conditions are satisfied**.
+
+---
+
+## 9. TaskItem Submit Unit Tests
+
+### Requirement
+
+The application must allow a valid draft to transition to the Submitted state only when all required information is present.
+
+Submission requires a valid title and description. Once submitted, the task must record its submission timestamp and prevent additional submissions.
+
+Automated tests must verify that valid submissions succeed, invalid submissions are rejected, and failed operations preserve the task's existing lifecycle state.
+
+### Implementation
+
+Create **five xUnit unit tests** within the `TaskItemTests` class to verify the `Submit(...)` method:
+
+1. **Submit_WithValidDraft_UpdatesStatusAndTimestamp:** Verifies that a valid draft transitions to Submitted and records the supplied submission timestamp.
+2. **Submit_WithNullDescription_ThrowsInvalidOperationException:** Verifies that submission is rejected when the description is null.
+3. **Submit_WithEmptyDescription_ThrowsInvalidOperationException:** Verifies that submission is rejected when the description is empty.
+4. **Submit_WithWhitespaceDescription_ThrowsInvalidOperationException:** Verifies that submission is rejected when the description contains only whitespace.
+5. **Submit_WhenAlreadySubmitted_ThrowsInvalidOperationException:** Verifies that a submitted task cannot be submitted again and that its original submission timestamp is preserved.
+
+The tests use several **xUnit assertions**:
+
+- **Assert.Equal():** Verifies that the task's status and submission timestamp match the expected values.
+- **Assert.Null():** Verifies that rejected submissions do not assign a submission timestamp.
+- **Assert.Throws<T>():** Verifies that invalid submission attempts throw the expected exception type.
+
+The tests follow the **Arrange, Act, Assert (AAA)** pattern:
+
+- **Arrange:** Create a TaskItem with the necessary information and define a submission timestamp.
+- **Act:** Call `Submit(...)` on the existing task.
+- **Assert:** Verify that the operation produces the expected state changes or rejects the submission.
+
+### Why This Fits
+
+**Unit testing** verifies that the `Submit(...)` method correctly enforces the business rules governing the transition from Draft to Submitted.
+
+The successful submission test confirms that the entity changes its lifecycle state and records the supplied timestamp.
+
+Using a **fixed DateTimeOffset** allows the test to verify the exact timestamp stored by the entity. This reinforces the earlier design decision to pass timestamps into methods rather than retrieving the current time internally.
+
+Testing null, empty, and whitespace-only descriptions separately verifies that submission requires meaningful information rather than simply accepting any string value.
+
+**Exception assertions** confirm that invalid submissions are rejected through an `InvalidOperationException`.
+
+Additional assertions verify that rejected submissions leave the task in Draft status with SubmittedAt remaining null.
+
+The duplicate-submission test verifies that an already submitted task cannot transition again or overwrite its original submission timestamp.
+
+Together, these tests reinforce **lifecycle validation, state preservation, and predictable testing**.
+
+### Alternatives & Tradeoffs
+
+**Manual testing** could verify submission behavior, but automated unit tests provide repeatable checks that can be executed after future code changes.
+
+**Parameterized tests using [Theory] and [InlineData]** could combine the null, empty, and whitespace-only description scenarios into one test method.
+
+This would reduce repeated test code. However, separate `[Fact]` tests were chosen to keep each validation scenario explicit and easier to understand.
+
+**Integration tests** could verify submission through SQL Server or an HTTP endpoint, but these introduce additional dependencies that are unnecessary for testing the entity's lifecycle rules.
+
+The submission timestamp could also be generated using **DateTimeOffset.UtcNow** inside the entity. However, passing a fixed timestamp into `Submit(...)` makes exact timestamp assertions predictable.
+
+The chosen approach provides **focused verification of business rules, clear test failures, and minimal external dependencies**.
+
+### What It Does Not Do
+
+These tests verify the in-memory behavior of `Submit(...)`, but they do not confirm that submitted tasks are persisted to SQL Server.
+
+They also do not verify that application services or API endpoints correctly coordinate task submission.
+
+The tests do not currently verify every possible invalid condition.
+
+For example, the Title property is validated during submission, but the submission tests do not separately attempt to submit a task with an invalid title. The controlled creation and editing methods already reject those inputs through their own validation rules.
+
+The tests also do not verify chronological ordering between CreatedAt and SubmittedAt. The current method does not enforce a rule requiring the submission timestamp to occur after the creation timestamp.
+
+Database persistence, application orchestration, HTTP behavior, and additional integrity requirements will be addressed in later development stages where appropriate.
+
+### Transferable Knowledge
+
+**Unit testing lifecycle transitions** is useful when an entity moves between business states that have different requirements and restrictions.
+
+Examples include:
+
+- **Order:** Verify that an order cannot transition to Confirmed without required customer and order information.
+- **Payment:** Verify that a completed payment cannot be processed again or have its completion timestamp overwritten.
+- **Leave Request:** Verify that a request cannot be submitted without required information and cannot be submitted twice.
+- **Investigation Case:** Verify that a case cannot transition to a review or closure state until the required information is complete.
+
+**State preservation** is important when testing invalid operations. Rejected transitions should leave the entity's previously valid state unchanged.
+
+**Testing both successful and rejected transitions** helps verify that an entity permits valid operations while preventing actions that violate business rules.
+
+**Designing for testability** allows external values, such as timestamps, to be controlled during automated testing so the resulting behavior can be verified reliably.
+
+The broader principle is that **lifecycle unit tests should verify not only that valid state transitions succeed, but also that invalid transitions are rejected without altering the entity's existing state**.
 
 ---

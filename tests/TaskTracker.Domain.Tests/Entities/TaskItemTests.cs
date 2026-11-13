@@ -218,5 +218,125 @@ public class TaskItemTests
         newTask.EditDraft(newTask.Title, updatedDescription);
         Assert.Null(updatedDescription);
     }
+
+    [Fact]
+    public void EditDraft_WhenAlreadySubmitted_ThrowsInvalidOperationException()
+    {
+        string title = "Title";
+        string? description = "Test description for submit.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        DateTimeOffset submittedAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        newTask.Submit(submittedAt);
+
+        string updatedTitle = "New title";
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            newTask.EditDraft(updatedTitle, newTask.Description);
+        });
+
+        Assert.Equal(title, newTask.Title);
+
+    }
+
+    [Fact]
+    public void Submit_WithValidDraft_UpdatesStatusAndTimestamp()
+    {
+        string title = "Title";
+        string? description = "Test description for submit.";
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        DateTimeOffset submittedAt = new (2026, 11, 11, 12, 0, 0, TimeSpan.Zero);
+
+        newTask.Submit(submittedAt);
+
+        Assert.Equal(TaskItemStatus.Submitted, newTask.Status);
+        Assert.Equal(submittedAt, newTask.SubmittedAt);
+    }
+
+    [Fact]
+    public void Submit_WithNullDescription_ThrowsInvalidOperationException()
+    {
+        string title = "Title";
+        string? description = null;
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+        DateTimeOffset submittedAt = new (2026, 11, 12, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            newTask.Submit(submittedAt);
+        });
+
+        Assert.Equal(TaskItemStatus.Draft, newTask.Status);
+        Assert.Null(newTask.SubmittedAt);
+    }
+
+    [Fact]
+    public void Submit_WithEmptyDescription_ThrowsInvalidOperationException()
+    {
+        string title = "Title";
+        string? description = "";
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+        DateTimeOffset submittedAt = new (2026, 11, 12, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+           newTask.Submit(submittedAt); 
+        });
+
+        Assert.Equal(TaskItemStatus.Draft, newTask.Status);
+        Assert.Null(newTask.SubmittedAt);
+    }
+
+    [Fact]
+    public void Submit_WithWhitespaceDescription_ThrowsInvalidOperationException()
+    {
+        string title = "Title";
+        string? description = "     ";
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+        DateTimeOffset submittedAt = new (2026, 11, 12, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            newTask.Submit(submittedAt);
+        });
+
+        Assert.Equal(TaskItemStatus.Draft, newTask.Status);
+        Assert.Null(newTask.SubmittedAt);
+    }
+
+    [Fact]
+    public void Submit_WhenAlreadySubmitted_ThrowsInvalidOperationException()
+    {
+        string title = "Title";
+        string? description = "This is a test description";
+        DateTimeOffset createdAt = new (2026, 11, 11, 11, 5, 0, TimeSpan.Zero);
+        DateTimeOffset submittedAt = new (2026, 11, 12, 12, 0, 0, TimeSpan.Zero);
+
+        TaskItem newTask = TaskItem.Create(title, description, createdAt);
+        newTask.Submit(submittedAt);
+
+        DateTimeOffset secondSubmittedTime = new (2026, 11, 12, 13, 0, 0, TimeSpan.Zero);
+
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            newTask.Submit(secondSubmittedTime);
+        });
+
+        Assert.Equal(TaskItemStatus.Submitted, newTask.Status);
+        Assert.Equal(submittedAt, newTask.SubmittedAt);
+    }
 }
 
